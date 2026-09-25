@@ -885,6 +885,187 @@ body {
   border-radius: 1rem;
 }
 
+/* Admin Panel Partition */
+.admin-view .page-title {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 992px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-form-card, .admin-inventory-card {
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  padding: 1.75rem;
+  box-shadow: var(--card-shadow);
+  text-align: left;
+}
+
+.admin-form-card h2, .admin-inventory-card h2 {
+  font-size: 1.3rem;
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  color: var(--text-dark);
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.admin-select, .admin-textarea {
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  outline: none;
+  font-family: inherit;
+  background-color: #ffffff;
+}
+
+.admin-select:focus, .admin-textarea:focus {
+  border-color: var(--primary-color);
+}
+
+.form-checkbox-group {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+}
+
+.form-checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.admin-form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.admin-submit-btn {
+  flex: 1;
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.admin-submit-btn:hover {
+  background-color: var(--primary-hover);
+}
+
+.admin-cancel-btn {
+  background-color: var(--bg-secondary);
+  color: var(--text-dark);
+  border: 1px solid var(--border-color);
+  font-size: 0.95rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+/* Inventory Table */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.inventory-table th, .inventory-table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inventory-table th {
+  background-color: var(--bg-secondary);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.table-book-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.table-thumb {
+  width: 40px;
+  height: 55px;
+  object-fit: cover;
+  border-radius: 0.25rem;
+  border: 1px solid var(--border-color);
+}
+
+.table-author {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.table-actions-cell {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-btn {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background-color: white;
+  transition: all 0.2s ease;
+}
+
+.edit-btn:hover {
+  background-color: #eff6ff;
+  border-color: var(--primary-color);
+}
+
+.delete-btn:hover {
+  background-color: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
 /* Footer */
 .footer {
   text-align: center;
@@ -894,5 +1075,6 @@ body {
   font-size: 0.9rem;
   background-color: #ffffff;
 }
+
 
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
 
-// Sample mock data for books
+// Initial book list
 const INITIAL_BOOKS = [
   {
     id: 1,
@@ -86,25 +86,107 @@ const INITIAL_BOOKS = [
 const CATEGORIES = ['All', 'Fiction', 'Self-Help', 'Technology', 'Sci-Fi', 'History', 'Psychology'];
 
 function App() {
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'books' | 'cart' | 'auth' | 'profile'
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'books' | 'cart' | 'auth' | 'profile' | 'admin'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedBook, setSelectedBook] = useState(null);
   
+  // Dynamic Book Store State
+  const [books, setBooks] = useState(INITIAL_BOOKS);
+
   // Shopping Cart state
   const [cart, setCart] = useState([]);
 
   // User Auth State
   const [currentUser, setCurrentUser] = useState(null);
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
-  const [authFormData, setAuthFormData] = useState({
-    name: '',
-    email: '',
-    password: ''
-  });
+  const [authMode, setAuthMode] = useState('login');
+  const [authFormData, setAuthFormData] = useState({ name: '', email: '', password: '' });
   const [authError, setAuthError] = useState('');
 
-  // Handle Login / Register Submission
+  // Admin Management Form State
+  const [adminBookForm, setAdminBookForm] = useState({
+    id: null,
+    title: '',
+    author: '',
+    price: '',
+    category: 'Fiction',
+    availableQuantity: '',
+    coverImage: '',
+    description: '',
+    featured: false,
+    isNew: true,
+    popular: false
+  });
+  const [isEditingBook, setIsEditingBook] = useState(false);
+
+  // Handle Admin Add / Edit Book
+  const handleAdminBookSubmit = (e) => {
+    e.preventDefault();
+    if (!adminBookForm.title || !adminBookForm.author || !adminBookForm.price || !adminBookForm.availableQuantity) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    const priceNum = parseFloat(adminBookForm.price);
+    const qtyNum = parseInt(adminBookForm.availableQuantity, 10);
+    const cover = adminBookForm.coverImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80';
+
+    if (isEditingBook) {
+      // Update existing book
+      setBooks(prev => prev.map(b => b.id === adminBookForm.id ? {
+        ...adminBookForm,
+        price: priceNum,
+        availableQuantity: qtyNum,
+        coverImage: cover
+      } : b));
+      alert('Book updated successfully!');
+    } else {
+      // Add new book
+      const newBook = {
+        ...adminBookForm,
+        id: Date.now(),
+        price: priceNum,
+        availableQuantity: qtyNum,
+        coverImage: cover
+      };
+      setBooks(prev => [newBook, ...prev]);
+      alert('New book added successfully!');
+    }
+
+    // Reset form
+    resetAdminForm();
+  };
+
+  const resetAdminForm = () => {
+    setAdminBookForm({
+      id: null,
+      title: '',
+      author: '',
+      price: '',
+      category: 'Fiction',
+      availableQuantity: '',
+      coverImage: '',
+      description: '',
+      featured: false,
+      isNew: true,
+      popular: false
+    });
+    setIsEditingBook(false);
+  };
+
+  const handleEditBookClick = (book) => {
+    setAdminBookForm({ ...book });
+    setIsEditingBook(true);
+  };
+
+  const handleDeleteBookClick = (id) => {
+    if (window.confirm('Are you sure you want to delete this book from inventory?')) {
+      setBooks(prev => prev.filter(b => b.id !== id));
+      setCart(prev => prev.filter(item => item.id !== id));
+    }
+  };
+
+  // Auth Handling
   const handleAuthSubmit = (e) => {
     e.preventDefault();
     setAuthError('');
@@ -119,10 +201,10 @@ function App() {
       return;
     }
 
-    // Mock successful authentication
     const userObj = {
       name: authMode === 'register' ? authFormData.name : authFormData.email.split('@')[0],
-      email: authFormData.email
+      email: authFormData.email,
+      isAdmin: authFormData.email.includes('admin') // Demo admin role if email contains 'admin'
     };
 
     setCurrentUser(userObj);
@@ -157,7 +239,7 @@ function App() {
       prevCart.map((item) => {
         if (item.id === id) {
           if (item.quantity >= item.availableQuantity) {
-            alert(`Maximum stock available for ${item.title} reached.`);
+            alert(`Maximum stock available reached.`);
             return item;
           }
           return { ...item, quantity: item.quantity + 1 };
@@ -181,14 +263,13 @@ function App() {
     setCart((prevCart) => prevCart.filter((item) => item.id !== id));
   };
 
-  // Cart calculations
   const totalItemsCount = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   const tax = subtotal * 0.08;
   const grandTotal = subtotal + tax;
 
-  // Filter books
-  const filteredBooks = INITIAL_BOOKS.filter((book) => {
+  // Book filtering
+  const filteredBooks = books.filter((book) => {
     const matchesSearch =
       book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       book.author.toLowerCase().includes(searchQuery.toLowerCase());
@@ -196,9 +277,9 @@ function App() {
     return matchesSearch && matchesCategory;
   });
 
-  const featuredBooks = INITIAL_BOOKS.filter((b) => b.featured);
-  const newBooks = INITIAL_BOOKS.filter((b) => b.isNew);
-  const popularBooks = INITIAL_BOOKS.filter((b) => b.popular);
+  const featuredBooks = books.filter((b) => b.featured);
+  const newBooks = books.filter((b) => b.isNew);
+  const popularBooks = books.filter((b) => b.popular);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -237,6 +318,18 @@ function App() {
           >
             Books
           </button>
+
+          {/* Admin Navigation Tab */}
+          <button
+            className={`nav-btn admin-nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('admin');
+              setSelectedBook(null);
+            }}
+          >
+            ⚙️ Admin Panel
+          </button>
+
           <button
             className={`nav-btn cart-nav-btn ${activeTab === 'cart' ? 'active' : ''}`}
             onClick={() => {
@@ -502,7 +595,7 @@ function App() {
             )}
           </section>
         ) : activeTab === 'auth' ? (
-          /* User Authentication View (Login / Register) */
+          /* Auth View */
           <section className="auth-view">
             <div className="auth-card">
               <h2 className="auth-title">
@@ -572,7 +665,7 @@ function App() {
             </div>
           </section>
         ) : activeTab === 'profile' ? (
-          /* User Profile Partition */
+          /* Profile View */
           <section className="profile-view">
             <h1 className="page-title">User Profile</h1>
             <div className="profile-card">
@@ -584,6 +677,185 @@ function App() {
                 <button className="auth-btn logout-btn" onClick={handleLogout} style={{ marginTop: '1.5rem' }}>
                   Log Out
                 </button>
+              </div>
+            </div>
+          </section>
+        ) : activeTab === 'admin' ? (
+          /* Admin Dashboard Partition */
+          <section className="admin-view">
+            <h1 className="page-title">⚙️ Admin Dashboard & Inventory Management</h1>
+
+            <div className="admin-layout">
+              {/* Form to Add / Edit Book */}
+              <div className="admin-form-card">
+                <h2>{isEditingBook ? 'Edit Book Information' : 'Add New Book to Store'}</h2>
+                <form onSubmit={handleAdminBookSubmit} className="admin-form">
+                  <div className="form-group">
+                    <label>Book Title *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Master React"
+                      value={adminBookForm.title}
+                      onChange={(e) => setAdminBookForm({ ...adminBookForm, title: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Author Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Jane Doe"
+                      value={adminBookForm.author}
+                      onChange={(e) => setAdminBookForm({ ...adminBookForm, author: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Price ($) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="19.99"
+                        value={adminBookForm.price}
+                        onChange={(e) => setAdminBookForm({ ...adminBookForm, price: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Stock Quantity *</label>
+                      <input
+                        type="number"
+                        placeholder="10"
+                        value={adminBookForm.availableQuantity}
+                        onChange={(e) => setAdminBookForm({ ...adminBookForm, availableQuantity: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Category</label>
+                    <select
+                      value={adminBookForm.category}
+                      onChange={(e) => setAdminBookForm({ ...adminBookForm, category: e.target.value })}
+                      className="admin-select"
+                    >
+                      {CATEGORIES.filter(c => c !== 'All').map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Cover Image URL</label>
+                    <input
+                      type="url"
+                      placeholder="https://images.unsplash.com/..."
+                      value={adminBookForm.coverImage}
+                      onChange={(e) => setAdminBookForm({ ...adminBookForm, coverImage: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Book Description</label>
+                    <textarea
+                      rows="3"
+                      placeholder="Brief overview of the book..."
+                      value={adminBookForm.description}
+                      onChange={(e) => setAdminBookForm({ ...adminBookForm, description: e.target.value })}
+                      className="admin-textarea"
+                    ></textarea>
+                  </div>
+
+                  <div className="form-checkbox-group">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={adminBookForm.featured}
+                        onChange={(e) => setAdminBookForm({ ...adminBookForm, featured: e.target.checked })}
+                      />
+                      Featured Book
+                    </label>
+
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={adminBookForm.isNew}
+                        onChange={(e) => setAdminBookForm({ ...adminBookForm, isNew: e.target.checked })}
+                      />
+                      New Arrival
+                    </label>
+                  </div>
+
+                  <div className="admin-form-actions">
+                    <button type="submit" className="admin-submit-btn">
+                      {isEditingBook ? 'Save Changes' : 'Add Book'}
+                    </button>
+                    {isEditingBook && (
+                      <button type="button" className="admin-cancel-btn" onClick={resetAdminForm}>
+                        Cancel Edit
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              {/* Book Inventory List Table */}
+              <div className="admin-inventory-card">
+                <h2>Current Inventory ({books.length} Books)</h2>
+                <div className="table-wrapper">
+                  <table className="inventory-table">
+                    <thead>
+                      <tr>
+                        <th>Book</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Qty</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {books.map(book => (
+                        <tr key={book.id}>
+                          <td className="table-book-cell">
+                            <img src={book.coverImage} alt={book.title} className="table-thumb" />
+                            <div>
+                              <strong>{book.title}</strong>
+                              <div className="table-author">{book.author}</div>
+                            </div>
+                          </td>
+                          <td>{book.category}</td>
+                          <td>${book.price.toFixed(2)}</td>
+                          <td>
+                            <span className={book.availableQuantity > 5 ? 'in-stock' : 'low-stock'}>
+                              {book.availableQuantity}
+                            </span>
+                          </td>
+                          <td className="table-actions-cell">
+                            <button
+                              className="action-btn edit-btn"
+                              onClick={() => handleEditBookClick(book)}
+                              title="Edit book"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              className="action-btn delete-btn"
+                              onClick={() => handleDeleteBookClick(book.id)}
+                              title="Delete book"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </section>
