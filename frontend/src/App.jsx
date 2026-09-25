@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
 
-// Sample mock data for books with requested schema attributes
+// Sample mock data for books
 const INITIAL_BOOKS = [
   {
     id: 1,
@@ -86,7 +86,7 @@ const INITIAL_BOOKS = [
 const CATEGORIES = ['All', 'Fiction', 'Self-Help', 'Technology', 'Sci-Fi', 'History', 'Psychology'];
 
 function App() {
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'books' | 'cart'
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'books' | 'cart' | 'auth' | 'profile'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedBook, setSelectedBook] = useState(null);
@@ -94,7 +94,48 @@ function App() {
   // Shopping Cart state
   const [cart, setCart] = useState([]);
 
-  // Add book to cart
+  // User Auth State
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+  const [authFormData, setAuthFormData] = useState({
+    name: '',
+    email: '',
+    password: ''
+  });
+  const [authError, setAuthError] = useState('');
+
+  // Handle Login / Register Submission
+  const handleAuthSubmit = (e) => {
+    e.preventDefault();
+    setAuthError('');
+
+    if (!authFormData.email || !authFormData.password) {
+      setAuthError('Please fill in all required fields.');
+      return;
+    }
+
+    if (authMode === 'register' && !authFormData.name) {
+      setAuthError('Please enter your full name.');
+      return;
+    }
+
+    // Mock successful authentication
+    const userObj = {
+      name: authMode === 'register' ? authFormData.name : authFormData.email.split('@')[0],
+      email: authFormData.email
+    };
+
+    setCurrentUser(userObj);
+    setAuthFormData({ name: '', email: '', password: '' });
+    setActiveTab('home');
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setActiveTab('home');
+  };
+
+  // Cart Functions
   const addToCart = (book) => {
     setCart((prevCart) => {
       const existing = prevCart.find((item) => item.id === book.id);
@@ -111,7 +152,6 @@ function App() {
     });
   };
 
-  // Increase quantity of book in cart
   const increaseQuantity = (id) => {
     setCart((prevCart) =>
       prevCart.map((item) => {
@@ -127,7 +167,6 @@ function App() {
     );
   };
 
-  // Decrease quantity of book in cart (removes item if quantity becomes 0)
   const decreaseQuantity = (id) => {
     setCart((prevCart) =>
       prevCart
@@ -138,18 +177,17 @@ function App() {
     );
   };
 
-  // Remove book completely from cart
   const removeFromCart = (id) => {
     setCart((prevCart) => prevCart.filter((item) => item.id !== id));
   };
 
-  // Calculate cart metrics (Total Count and Total Price)
+  // Cart calculations
   const totalItemsCount = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
-  const tax = subtotal * 0.08; // 8% sales tax
+  const tax = subtotal * 0.08;
   const grandTotal = subtotal + tax;
 
-  // Filter books based on search & category
+  // Filter books
   const filteredBooks = INITIAL_BOOKS.filter((book) => {
     const matchesSearch =
       book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -208,10 +246,37 @@ function App() {
           >
             🛒 Cart ({totalItemsCount})
           </button>
+
+          {currentUser ? (
+            <div className="user-nav-group">
+              <button
+                className={`nav-btn ${activeTab === 'profile' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('profile');
+                  setSelectedBook(null);
+                }}
+              >
+                👤 {currentUser.name}
+              </button>
+              <button className="auth-btn logout-btn" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              className={`auth-btn login-btn ${activeTab === 'auth' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('auth');
+                setSelectedBook(null);
+              }}
+            >
+              Sign In
+            </button>
+          )}
         </nav>
       </header>
 
-      {/* Main Content Area with Clean White Background */}
+      {/* Main Content Area */}
       <main className="main-content">
         {selectedBook ? (
           /* Book Details View */
@@ -265,7 +330,6 @@ function App() {
               <h1>Find Your Next Favorite Book</h1>
               <p>Explore thousands of books across all genres and authors.</p>
 
-              {/* Search Bar in Home */}
               <form className="search-bar" onSubmit={handleSearchSubmit}>
                 <input
                   type="text"
@@ -277,7 +341,6 @@ function App() {
               </form>
             </div>
 
-            {/* Categories Section */}
             <section className="section">
               <h2 className="section-title">Categories</h2>
               <div className="categories-grid">
@@ -296,57 +359,38 @@ function App() {
               </div>
             </section>
 
-            {/* Featured Books */}
             <section className="section">
               <h2 className="section-title">Featured Books</h2>
               <div className="books-grid">
                 {featuredBooks.map((book) => (
-                  <BookCard
-                    key={book.id}
-                    book={book}
-                    onSelect={setSelectedBook}
-                    onAddToCart={addToCart}
-                  />
+                  <BookCard key={book.id} book={book} onSelect={setSelectedBook} onAddToCart={addToCart} />
                 ))}
               </div>
             </section>
 
-            {/* New Books */}
             <section className="section">
               <h2 className="section-title">New Arrival Books</h2>
               <div className="books-grid">
                 {newBooks.map((book) => (
-                  <BookCard
-                    key={book.id}
-                    book={book}
-                    onSelect={setSelectedBook}
-                    onAddToCart={addToCart}
-                  />
+                  <BookCard key={book.id} book={book} onSelect={setSelectedBook} onAddToCart={addToCart} />
                 ))}
               </div>
             </section>
 
-            {/* Popular Books */}
             <section className="section">
               <h2 className="section-title">Popular Books</h2>
               <div className="books-grid">
                 {popularBooks.map((book) => (
-                  <BookCard
-                    key={book.id}
-                    book={book}
-                    onSelect={setSelectedBook}
-                    onAddToCart={addToCart}
-                  />
+                  <BookCard key={book.id} book={book} onSelect={setSelectedBook} onAddToCart={addToCart} />
                 ))}
               </div>
             </section>
           </section>
         ) : activeTab === 'books' ? (
-          /* Books View / Search & Listing */
+          /* Books View */
           <section className="books-view">
             <h1 className="page-title">Explore All Books</h1>
 
-            {/* Search and Filters */}
             <div className="filters-bar">
               <input
                 type="text"
@@ -369,88 +413,59 @@ function App() {
               </div>
             </div>
 
-            {/* Book List Grid */}
             <div className="books-grid">
               {filteredBooks.length > 0 ? (
                 filteredBooks.map((book) => (
-                  <BookCard
-                    key={book.id}
-                    book={book}
-                    onSelect={setSelectedBook}
-                    onAddToCart={addToCart}
-                  />
+                  <BookCard key={book.id} book={book} onSelect={setSelectedBook} onAddToCart={addToCart} />
                 ))
               ) : (
                 <div className="no-results">No books found matching your criteria.</div>
               )}
             </div>
           </section>
-        ) : (
-          /* Shopping Cart View */
+        ) : activeTab === 'cart' ? (
+          /* Cart View */
           <section className="cart-view">
             <h1 className="page-title">Your Shopping Cart ({totalItemsCount} items)</h1>
 
             {cart.length === 0 ? (
               <div className="empty-cart-card">
                 <p className="empty-cart-text">Your cart is currently empty.</p>
-                <button
-                  className="buy-now-btn"
-                  onClick={() => setActiveTab('books')}
-                >
+                <button className="buy-now-btn" onClick={() => setActiveTab('books')}>
                   Browse Books
                 </button>
               </div>
             ) : (
               <div className="cart-layout">
-                {/* Cart Items List */}
                 <div className="cart-items-list">
                   {cart.map((item) => (
                     <div key={item.id} className="cart-item">
                       <img src={item.coverImage} alt={item.title} className="cart-item-img" />
-                      
                       <div className="cart-item-info">
                         <h3 className="cart-item-title">{item.title}</h3>
                         <p className="cart-item-author">By {item.author}</p>
                         <p className="cart-item-price">${item.price.toFixed(2)} each</p>
                       </div>
 
-                      {/* Increase/Decrease Quantity Controls */}
                       <div className="cart-item-quantity">
-                        <button
-                          className="qty-btn"
-                          onClick={() => decreaseQuantity(item.id)}
-                          title="Decrease quantity"
-                        >
+                        <button className="qty-btn" onClick={() => decreaseQuantity(item.id)}>
                           -
                         </button>
                         <span className="qty-value">{item.quantity}</span>
-                        <button
-                          className="qty-btn"
-                          onClick={() => increaseQuantity(item.id)}
-                          title="Increase quantity"
-                        >
+                        <button className="qty-btn" onClick={() => increaseQuantity(item.id)}>
                           +
                         </button>
                       </div>
 
-                      {/* Subtotal calculation for item */}
-                      <div className="cart-item-subtotal">
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </div>
+                      <div className="cart-item-subtotal">${(item.price * item.quantity).toFixed(2)}</div>
 
-                      {/* Remove item button */}
-                      <button
-                        className="remove-btn"
-                        onClick={() => removeFromCart(item.id)}
-                        title="Remove book from cart"
-                      >
+                      <button className="remove-btn" onClick={() => removeFromCart(item.id)}>
                         🗑️
                       </button>
                     </div>
                   ))}
                 </div>
 
-                {/* Calculate Total / Cart Summary Partition */}
                 <div className="cart-summary-card">
                   <h2>Order Summary</h2>
                   <div className="summary-row">
@@ -469,7 +484,16 @@ function App() {
 
                   <button
                     className="checkout-btn"
-                    onClick={() => alert('Proceeding to checkout with total: $' + grandTotal.toFixed(2))}
+                    onClick={() => {
+                      if (!currentUser) {
+                        alert('Please sign in to complete your checkout!');
+                        setActiveTab('auth');
+                      } else {
+                        alert(`Order placed successfully by ${currentUser.name}! Total: $${grandTotal.toFixed(2)}`);
+                        setCart([]);
+                        setActiveTab('home');
+                      }
+                    }}
                   >
                     Proceed to Checkout
                   </button>
@@ -477,7 +501,93 @@ function App() {
               </div>
             )}
           </section>
-        )}
+        ) : activeTab === 'auth' ? (
+          /* User Authentication View (Login / Register) */
+          <section className="auth-view">
+            <div className="auth-card">
+              <h2 className="auth-title">
+                {authMode === 'login' ? 'Sign In to Your Account' : 'Create New Account'}
+              </h2>
+
+              {authError && <div className="auth-error-banner">{authError}</div>}
+
+              <form onSubmit={handleAuthSubmit} className="auth-form">
+                {authMode === 'register' && (
+                  <div className="form-group">
+                    <label>Full Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={authFormData.name}
+                      onChange={(e) => setAuthFormData({ ...authFormData, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="name@example.com"
+                    value={authFormData.email}
+                    onChange={(e) => setAuthFormData({ ...authFormData, email: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Password</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={authFormData.password}
+                    onChange={(e) => setAuthFormData({ ...authFormData, password: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <button type="submit" className="auth-submit-btn">
+                  {authMode === 'login' ? 'Sign In' : 'Register Account'}
+                </button>
+              </form>
+
+              <div className="auth-switch">
+                {authMode === 'login' ? (
+                  <p>
+                    Don't have an account?{' '}
+                    <span onClick={() => { setAuthMode('register'); setAuthError(''); }}>
+                      Create one here
+                    </span>
+                  </p>
+                ) : (
+                  <p>
+                    Already have an account?{' '}
+                    <span onClick={() => { setAuthMode('login'); setAuthError(''); }}>
+                      Sign in here
+                    </span>
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        ) : activeTab === 'profile' ? (
+          /* User Profile Partition */
+          <section className="profile-view">
+            <h1 className="page-title">User Profile</h1>
+            <div className="profile-card">
+              <div className="profile-avatar">👤</div>
+              <div className="profile-details">
+                <h2>{currentUser?.name}</h2>
+                <p className="profile-email">Email: {currentUser?.email}</p>
+                <div className="profile-badge">Active Member</div>
+                <button className="auth-btn logout-btn" onClick={handleLogout} style={{ marginTop: '1.5rem' }}>
+                  Log Out
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : null}
       </main>
 
       {/* Footer */}
