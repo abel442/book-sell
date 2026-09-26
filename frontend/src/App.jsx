@@ -83,7 +83,24 @@ const INITIAL_BOOKS = [
   }
 ];
 
-// Initial mock orders for My Orders
+// Initial Categories List
+const INITIAL_CATEGORIES = [
+  'Fiction', 'Self-Help', 'Technology', 'Sci-Fi', 'History', 'Psychology'
+];
+
+// Initial Authors List
+const INITIAL_AUTHORS = [
+  'F. Scott Fitzgerald', 'James Clear', 'Robert C. Martin', 'Frank Herbert', 'Yuval Noah Harari', 'Daniel Kahneman'
+];
+
+// Initial Customers List
+const INITIAL_CUSTOMERS = [
+  { id: 1, name: 'John Doe', email: 'john@example.com', ordersCount: 3, totalSpent: 112.50, joinedDate: '2026-01-15' },
+  { id: 2, name: 'Sarah Smith', email: 'sarah@example.com', ordersCount: 5, totalSpent: 240.00, joinedDate: '2026-03-22' },
+  { id: 3, name: 'Michael Brown', email: 'michael@example.com', ordersCount: 1, totalSpent: 34.00, joinedDate: '2026-07-10' }
+];
+
+// Initial Orders
 const INITIAL_ORDERS = [
   {
     id: 'ORD-98214',
@@ -102,10 +119,25 @@ const INITIAL_ORDERS = [
       { id: 1, title: 'The Great Gatsby', price: 14.99, quantity: 1, coverImage: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80' },
       { id: 4, title: 'Dune', price: 18.99, quantity: 1, coverImage: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=400&q=80' }
     ]
+  },
+  {
+    id: 'ORD-54129',
+    date: '2026-09-24',
+    status: 'Processing',
+    total: 58.20,
+    customer: {
+      fullName: 'Sarah Smith',
+      email: 'sarah@example.com',
+      phone: '+1 555-4819',
+      address: '456 Oak Avenue',
+      city: 'Los Angeles',
+      zipCode: '90001'
+    },
+    items: [
+      { id: 2, title: 'Atomic Habits', price: 21.50, quantity: 2, coverImage: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=400&q=80' }
+    ]
   }
 ];
-
-const CATEGORIES = ['All', 'Fiction', 'Self-Help', 'Technology', 'Sci-Fi', 'History', 'Psychology'];
 
 function App() {
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'books' | 'cart' | 'checkout' | 'orders' | 'auth' | 'profile' | 'admin'
@@ -115,8 +147,18 @@ function App() {
   
   // Store Data States
   const [books, setBooks] = useState(INITIAL_BOOKS);
-  const [cart, setCart] = useState([]);
+  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+  const [authors, setAuthors] = useState(INITIAL_AUTHORS);
+  const [customers, setCustomers] = useState(INITIAL_CUSTOMERS);
   const [orders, setOrders] = useState(INITIAL_ORDERS);
+  const [cart, setCart] = useState([]);
+
+  // Admin Active Tab / Section ('books' | 'categories' | 'authors' | 'customers' | 'orders' | 'stats')
+  const [adminSubTab, setAdminSubTab] = useState('stats');
+
+  // New Category & Author Input States
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newAuthorName, setNewAuthorName] = useState('');
 
   // User Auth State
   const [currentUser, setCurrentUser] = useState(null);
@@ -124,7 +166,7 @@ function App() {
   const [authFormData, setAuthFormData] = useState({ name: '', email: '', password: '' });
   const [authError, setAuthError] = useState('');
 
-  // Checkout Form State (Customer Information & Delivery Address)
+  // Checkout Form State
   const [checkoutData, setCheckoutData] = useState({
     fullName: '',
     email: '',
@@ -135,13 +177,13 @@ function App() {
     paymentMethod: 'credit-card'
   });
 
-  // Admin Management Form State
+  // Admin Book Form State
   const [adminBookForm, setAdminBookForm] = useState({
     id: null,
     title: '',
-    author: '',
+    author: categories[0] || 'Fiction',
     price: '',
-    category: 'Fiction',
+    category: categories[0] || 'Fiction',
     availableQuantity: '',
     coverImage: '',
     description: '',
@@ -151,7 +193,48 @@ function App() {
   });
   const [isEditingBook, setIsEditingBook] = useState(false);
 
-  // Handle Checkout Form Submission (Place Order)
+  // Admin Category Management
+  const handleAddCategory = (e) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    if (categories.includes(newCategoryName.trim())) {
+      alert('Category already exists!');
+      return;
+    }
+    setCategories([...categories, newCategoryName.trim()]);
+    setNewCategoryName('');
+  };
+
+  const handleDeleteCategory = (catName) => {
+    if (window.confirm(`Delete category "${catName}"?`)) {
+      setCategories(categories.filter(c => c !== catName));
+    }
+  };
+
+  // Admin Author Management
+  const handleAddAuthor = (e) => {
+    e.preventDefault();
+    if (!newAuthorName.trim()) return;
+    if (authors.includes(newAuthorName.trim())) {
+      alert('Author already exists!');
+      return;
+    }
+    setAuthors([...authors, newAuthorName.trim()]);
+    setNewAuthorName('');
+  };
+
+  const handleDeleteAuthor = (authorName) => {
+    if (window.confirm(`Delete author "${authorName}"?`)) {
+      setAuthors(authors.filter(a => a !== authorName));
+    }
+  };
+
+  // Admin Order Status Change
+  const handleOrderStatusChange = (orderId, newStatus) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+  };
+
+  // Handle Checkout (Place Order)
   const handlePlaceOrder = (e) => {
     e.preventDefault();
 
@@ -165,12 +248,10 @@ function App() {
       return;
     }
 
-    // Calculate Grand Total
     const sub = cart.reduce((total, item) => total + item.price * item.quantity, 0);
     const taxAmt = sub * 0.08;
     const finalTotal = sub + taxAmt;
 
-    // Create New Order
     const newOrder = {
       id: `ORD-${Math.floor(10000 + Math.random() * 90000)}`,
       date: new Date().toISOString().split('T')[0],
@@ -180,7 +261,6 @@ function App() {
       items: [...cart]
     };
 
-    // Deduct available stock quantity for books
     setBooks(prevBooks =>
       prevBooks.map(b => {
         const cartItem = cart.find(ci => ci.id === b.id);
@@ -194,14 +274,35 @@ function App() {
       })
     );
 
-    // Save Order and reset Cart
+    // Also update or add customer profile metrics
+    setCustomers(prev => {
+      const existing = prev.find(c => c.email === checkoutData.email);
+      if (existing) {
+        return prev.map(c => c.email === checkoutData.email ? {
+          ...c,
+          ordersCount: c.ordersCount + 1,
+          totalSpent: c.totalSpent + finalTotal
+        } : c);
+      }
+      return [
+        {
+          id: Date.now(),
+          name: checkoutData.fullName,
+          email: checkoutData.email,
+          ordersCount: 1,
+          totalSpent: finalTotal,
+          joinedDate: new Date().toISOString().split('T')[0]
+        },
+        ...prev
+      ];
+    });
+
     setOrders([newOrder, ...orders]);
     setCart([]);
     alert(`Order ${newOrder.id} placed successfully! Thank you for your purchase.`);
     setActiveTab('orders');
   };
 
-  // Pre-fill checkout form if user is logged in
   const proceedToCheckoutView = () => {
     if (currentUser) {
       setCheckoutData(prev => ({
@@ -213,7 +314,7 @@ function App() {
     setActiveTab('checkout');
   };
 
-  // Admin Actions
+  // Admin Book CRUD
   const handleAdminBookSubmit = (e) => {
     e.preventDefault();
     if (!adminBookForm.title || !adminBookForm.author || !adminBookForm.price || !adminBookForm.availableQuantity) {
@@ -252,9 +353,9 @@ function App() {
     setAdminBookForm({
       id: null,
       title: '',
-      author: '',
+      author: authors[0] || '',
       price: '',
-      category: 'Fiction',
+      category: categories[0] || 'Fiction',
       availableQuantity: '',
       coverImage: '',
       description: '',
@@ -268,6 +369,7 @@ function App() {
   const handleEditBookClick = (book) => {
     setAdminBookForm({ ...book });
     setIsEditingBook(true);
+    setAdminSubTab('books');
   };
 
   const handleDeleteBookClick = (id) => {
@@ -372,6 +474,11 @@ function App() {
   const newBooks = books.filter((b) => b.isNew);
   const popularBooks = books.filter((b) => b.popular);
 
+  // Sales Statistics Calculation
+  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+  const totalBooksSold = orders.reduce((sum, o) => sum + o.items.reduce((iSum, i) => iSum + i.quantity, 0), 0);
+  const pendingOrdersCount = orders.filter(o => o.status === 'Processing').length;
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setActiveTab('books');
@@ -418,6 +525,8 @@ function App() {
           >
             📦 My Orders ({orders.length})
           </button>
+
+          {/* Admin Dashboard Tab */}
           <button
             className={`nav-btn admin-nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => {
@@ -425,8 +534,9 @@ function App() {
               setSelectedBook(null);
             }}
           >
-            ⚙️ Admin Panel
+            ⚙️ Admin Dashboard
           </button>
+
           <button
             className={`nav-btn cart-nav-btn ${activeTab === 'cart' ? 'active' : ''}`}
             onClick={() => {
@@ -534,7 +644,7 @@ function App() {
             <section className="section">
               <h2 className="section-title">Categories</h2>
               <div className="categories-grid">
-                {CATEGORIES.filter((c) => c !== 'All').map((cat) => (
+                {categories.map((cat) => (
                   <button
                     key={cat}
                     className="category-pill"
@@ -591,7 +701,7 @@ function App() {
               />
 
               <div className="category-filters">
-                {CATEGORIES.map((cat) => (
+                {['All', ...categories].map((cat) => (
                   <button
                     key={cat}
                     className={`filter-btn ${selectedCategory === cat ? 'active' : ''}`}
@@ -672,10 +782,7 @@ function App() {
                     <span>${grandTotal.toFixed(2)}</span>
                   </div>
 
-                  <button
-                    className="checkout-btn"
-                    onClick={proceedToCheckoutView}
-                  >
+                  <button className="checkout-btn" onClick={proceedToCheckoutView}>
                     Proceed to Checkout
                   </button>
                 </div>
@@ -683,13 +790,12 @@ function App() {
             )}
           </section>
         ) : activeTab === 'checkout' ? (
-          /* Checkout Partition View */
+          /* Checkout View */
           <section className="checkout-view">
             <h1 className="page-title">🛍️ Checkout & Place Order</h1>
 
             <form onSubmit={handlePlaceOrder} className="checkout-layout">
               <div className="checkout-forms">
-                {/* Customer Information Form */}
                 <div className="checkout-card">
                   <h2>Customer Information</h2>
                   <div className="form-group">
@@ -728,7 +834,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* Delivery Address Form */}
                 <div className="checkout-card">
                   <h2>Delivery Address</h2>
                   <div className="form-group">
@@ -768,7 +873,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Order Summary & Place Order Sidebar */}
               <div className="checkout-summary-card">
                 <h2>Order Summary</h2>
                 <div className="checkout-items-preview">
@@ -802,7 +906,7 @@ function App() {
             </form>
           </section>
         ) : activeTab === 'orders' ? (
-          /* My Orders Partition View */
+          /* My Orders View */
           <section className="orders-view">
             <h1 className="page-title">📦 My Orders & History</h1>
 
@@ -947,173 +1051,351 @@ function App() {
             </div>
           </section>
         ) : activeTab === 'admin' ? (
-          /* Admin View */
-          <section className="admin-view">
-            <h1 className="page-title">⚙️ Admin Dashboard & Inventory Management</h1>
-
-            <div className="admin-layout">
-              <div className="admin-form-card">
-                <h2>{isEditingBook ? 'Edit Book Information' : 'Add New Book to Store'}</h2>
-                <form onSubmit={handleAdminBookSubmit} className="admin-form">
-                  <div className="form-group">
-                    <label>Book Title *</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Master React"
-                      value={adminBookForm.title}
-                      onChange={(e) => setAdminBookForm({ ...adminBookForm, title: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Author Name *</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Jane Doe"
-                      value={adminBookForm.author}
-                      onChange={(e) => setAdminBookForm({ ...adminBookForm, author: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Price ($) *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="19.99"
-                        value={adminBookForm.price}
-                        onChange={(e) => setAdminBookForm({ ...adminBookForm, price: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label>Stock Quantity *</label>
-                      <input
-                        type="number"
-                        placeholder="10"
-                        value={adminBookForm.availableQuantity}
-                        onChange={(e) => setAdminBookForm({ ...adminBookForm, availableQuantity: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Category</label>
-                    <select
-                      value={adminBookForm.category}
-                      onChange={(e) => setAdminBookForm({ ...adminBookForm, category: e.target.value })}
-                      className="admin-select"
-                    >
-                      {CATEGORIES.filter(c => c !== 'All').map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Cover Image URL</label>
-                    <input
-                      type="url"
-                      placeholder="https://images.unsplash.com/..."
-                      value={adminBookForm.coverImage}
-                      onChange={(e) => setAdminBookForm({ ...adminBookForm, coverImage: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Book Description</label>
-                    <textarea
-                      rows="3"
-                      placeholder="Brief overview of the book..."
-                      value={adminBookForm.description}
-                      onChange={(e) => setAdminBookForm({ ...adminBookForm, description: e.target.value })}
-                      className="admin-textarea"
-                    ></textarea>
-                  </div>
-
-                  <div className="form-checkbox-group">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={adminBookForm.featured}
-                        onChange={(e) => setAdminBookForm({ ...adminBookForm, featured: e.target.checked })}
-                      />
-                      Featured Book
-                    </label>
-
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={adminBookForm.isNew}
-                        onChange={(e) => setAdminBookForm({ ...adminBookForm, isNew: e.target.checked })}
-                      />
-                      New Arrival
-                    </label>
-                  </div>
-
-                  <div className="admin-form-actions">
-                    <button type="submit" className="admin-submit-btn">
-                      {isEditingBook ? 'Save Changes' : 'Add Book'}
-                    </button>
-                    {isEditingBook && (
-                      <button type="button" className="admin-cancel-btn" onClick={resetAdminForm}>
-                        Cancel Edit
-                      </button>
-                    )}
-                  </div>
-                </form>
+          /* Full Separate Admin Dashboard View */
+          <section className="admin-dashboard-view">
+            <div className="admin-header-bar">
+              <h1>⚙️ Separate Admin Dashboard</h1>
+              <div className="admin-sub-tabs">
+                <button
+                  className={`sub-tab-btn ${adminSubTab === 'stats' ? 'active' : ''}`}
+                  onClick={() => setAdminSubTab('stats')}
+                >
+                  📊 Statistics
+                </button>
+                <button
+                  className={`sub-tab-btn ${adminSubTab === 'books' ? 'active' : ''}`}
+                  onClick={() => setAdminSubTab('books')}
+                >
+                  📚 Books Management
+                </button>
+                <button
+                  className={`sub-tab-btn ${adminSubTab === 'categories' ? 'active' : ''}`}
+                  onClick={() => setAdminSubTab('categories')}
+                >
+                  🏷️ Categories
+                </button>
+                <button
+                  className={`sub-tab-btn ${adminSubTab === 'authors' ? 'active' : ''}`}
+                  onClick={() => setAdminSubTab('authors')}
+                >
+                  ✍️ Authors
+                </button>
+                <button
+                  className={`sub-tab-btn ${adminSubTab === 'orders' ? 'active' : ''}`}
+                  onClick={() => setAdminSubTab('orders')}
+                >
+                  📦 Orders ({orders.length})
+                </button>
+                <button
+                  className={`sub-tab-btn ${adminSubTab === 'customers' ? 'active' : ''}`}
+                  onClick={() => setAdminSubTab('customers')}
+                >
+                  👥 Customers ({customers.length})
+                </button>
               </div>
+            </div>
 
-              <div className="admin-inventory-card">
-                <h2>Current Inventory ({books.length} Books)</h2>
+            {/* Sub-Tab 1: Sales Statistics */}
+            {adminSubTab === 'stats' && (
+              <div className="admin-stats-container">
+                <div className="stats-cards-grid">
+                  <div className="stat-card">
+                    <h3>Total Sales Revenue</h3>
+                    <p className="stat-number">${totalRevenue.toFixed(2)}</p>
+                    <span className="stat-trend">💰 Gross Earnings</span>
+                  </div>
+                  <div className="stat-card">
+                    <h3>Total Orders Placed</h3>
+                    <p className="stat-number">{orders.length}</p>
+                    <span className="stat-trend">📦 Completed & Processing</span>
+                  </div>
+                  <div className="stat-card">
+                    <h3>Total Books Sold</h3>
+                    <p className="stat-number">{totalBooksSold}</p>
+                    <span className="stat-trend">📖 Units Shipped</span>
+                  </div>
+                  <div className="stat-card">
+                    <h3>Registered Customers</h3>
+                    <p className="stat-number">{customers.length}</p>
+                    <span className="stat-trend">👥 Active Buyers</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-Tab 2: Add / Edit / Delete Books */}
+            {adminSubTab === 'books' && (
+              <div className="admin-layout">
+                <div className="admin-form-card">
+                  <h2>{isEditingBook ? 'Edit Book Information' : 'Add New Book'}</h2>
+                  <form onSubmit={handleAdminBookSubmit} className="admin-form">
+                    <div className="form-group">
+                      <label>Book Title *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Master React"
+                        value={adminBookForm.title}
+                        onChange={(e) => setAdminBookForm({ ...adminBookForm, title: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Author Name *</label>
+                      <select
+                        value={adminBookForm.author}
+                        onChange={(e) => setAdminBookForm({ ...adminBookForm, author: e.target.value })}
+                        className="admin-select"
+                      >
+                        {authors.map(a => (
+                          <option key={a} value={a}>{a}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Price ($) *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="19.99"
+                          value={adminBookForm.price}
+                          onChange={(e) => setAdminBookForm({ ...adminBookForm, price: e.target.value })}
+                          required
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Stock Quantity *</label>
+                        <input
+                          type="number"
+                          placeholder="10"
+                          value={adminBookForm.availableQuantity}
+                          onChange={(e) => setAdminBookForm({ ...adminBookForm, availableQuantity: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Category</label>
+                      <select
+                        value={adminBookForm.category}
+                        onChange={(e) => setAdminBookForm({ ...adminBookForm, category: e.target.value })}
+                        className="admin-select"
+                      >
+                        {categories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Cover Image URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://images.unsplash.com/..."
+                        value={adminBookForm.coverImage}
+                        onChange={(e) => setAdminBookForm({ ...adminBookForm, coverImage: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Book Description</label>
+                      <textarea
+                        rows="3"
+                        placeholder="Brief overview of the book..."
+                        value={adminBookForm.description}
+                        onChange={(e) => setAdminBookForm({ ...adminBookForm, description: e.target.value })}
+                        className="admin-textarea"
+                      ></textarea>
+                    </div>
+
+                    <div className="form-checkbox-group">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={adminBookForm.featured}
+                          onChange={(e) => setAdminBookForm({ ...adminBookForm, featured: e.target.checked })}
+                        />
+                        Featured Book
+                      </label>
+
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={adminBookForm.isNew}
+                          onChange={(e) => setAdminBookForm({ ...adminBookForm, isNew: e.target.checked })}
+                        />
+                        New Arrival
+                      </label>
+                    </div>
+
+                    <div className="admin-form-actions">
+                      <button type="submit" className="admin-submit-btn">
+                        {isEditingBook ? 'Save Changes' : 'Add Book'}
+                      </button>
+                      {isEditingBook && (
+                        <button type="button" className="admin-cancel-btn" onClick={resetAdminForm}>
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+
+                <div className="admin-inventory-card">
+                  <h2>Inventory List ({books.length} Books)</h2>
+                  <div className="table-wrapper">
+                    <table className="inventory-table">
+                      <thead>
+                        <tr>
+                          <th>Book</th>
+                          <th>Category</th>
+                          <th>Price</th>
+                          <th>Qty</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {books.map(book => (
+                          <tr key={book.id}>
+                            <td className="table-book-cell">
+                              <img src={book.coverImage} alt={book.title} className="table-thumb" />
+                              <div>
+                                <strong>{book.title}</strong>
+                                <div className="table-author">{book.author}</div>
+                              </div>
+                            </td>
+                            <td>{book.category}</td>
+                            <td>${book.price.toFixed(2)}</td>
+                            <td>
+                              <span className={book.availableQuantity > 5 ? 'in-stock' : 'low-stock'}>
+                                {book.availableQuantity}
+                              </span>
+                            </td>
+                            <td className="table-actions-cell">
+                              <button className="action-btn edit-btn" onClick={() => handleEditBookClick(book)}>
+                                ✏️ Edit
+                              </button>
+                              <button className="action-btn delete-btn" onClick={() => handleDeleteBookClick(book.id)}>
+                                🗑️ Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-Tab 3: Manage Categories */}
+            {adminSubTab === 'categories' && (
+              <div className="admin-two-column">
+                <div className="admin-card">
+                  <h2>Add New Category</h2>
+                  <form onSubmit={handleAddCategory} className="admin-form-inline">
+                    <input
+                      type="text"
+                      placeholder="e.g. Science & Nature"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      required
+                    />
+                    <button type="submit" className="admin-submit-btn">Add Category</button>
+                  </form>
+                </div>
+
+                <div className="admin-card">
+                  <h2>Existing Categories ({categories.length})</h2>
+                  <div className="admin-chip-list">
+                    {categories.map(cat => (
+                      <div key={cat} className="admin-chip">
+                        <span>{cat}</span>
+                        <button onClick={() => handleDeleteCategory(cat)} title="Remove Category">×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-Tab 4: Manage Authors */}
+            {adminSubTab === 'authors' && (
+              <div className="admin-two-column">
+                <div className="admin-card">
+                  <h2>Add New Author</h2>
+                  <form onSubmit={handleAddAuthor} className="admin-form-inline">
+                    <input
+                      type="text"
+                      placeholder="e.g. George Orwell"
+                      value={newAuthorName}
+                      onChange={(e) => setNewAuthorName(e.target.value)}
+                      required
+                    />
+                    <button type="submit" className="admin-submit-btn">Add Author</button>
+                  </form>
+                </div>
+
+                <div className="admin-card">
+                  <h2>Registered Authors ({authors.length})</h2>
+                  <div className="admin-chip-list">
+                    {authors.map(author => (
+                      <div key={author} className="admin-chip">
+                        <span>{author}</span>
+                        <button onClick={() => handleDeleteAuthor(author)} title="Remove Author">×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-Tab 5: View Orders & Change Order Status */}
+            {adminSubTab === 'orders' && (
+              <div className="admin-card">
+                <h2>Customer Orders Management ({orders.length})</h2>
                 <div className="table-wrapper">
                   <table className="inventory-table">
                     <thead>
                       <tr>
-                        <th>Book</th>
-                        <th>Category</th>
-                        <th>Price</th>
-                        <th>Qty</th>
-                        <th>Actions</th>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Change Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {books.map(book => (
-                        <tr key={book.id}>
-                          <td className="table-book-cell">
-                            <img src={book.coverImage} alt={book.title} className="table-thumb" />
-                            <div>
-                              <strong>{book.title}</strong>
-                              <div className="table-author">{book.author}</div>
-                            </div>
-                          </td>
-                          <td>{book.category}</td>
-                          <td>${book.price.toFixed(2)}</td>
+                      {orders.map(order => (
+                        <tr key={order.id}>
+                          <td><strong>{order.id}</strong></td>
                           <td>
-                            <span className={book.availableQuantity > 5 ? 'in-stock' : 'low-stock'}>
-                              {book.availableQuantity}
+                            <div>{order.customer.fullName}</div>
+                            <div className="table-author">{order.customer.email}</div>
+                          </td>
+                          <td>{order.date}</td>
+                          <td>${order.total.toFixed(2)}</td>
+                          <td>
+                            <span className={`status-badge ${order.status.toLowerCase()}`}>
+                              {order.status}
                             </span>
                           </td>
-                          <td className="table-actions-cell">
-                            <button
-                              className="action-btn edit-btn"
-                              onClick={() => handleEditBookClick(book)}
-                              title="Edit book"
+                          <td>
+                            <select
+                              value={order.status}
+                              onChange={(e) => handleOrderStatusChange(order.id, e.target.value)}
+                              className="admin-select-sm"
                             >
-                              ✏️ Edit
-                            </button>
-                            <button
-                              className="action-btn delete-btn"
-                              onClick={() => handleDeleteBookClick(book.id)}
-                              title="Delete book"
-                            >
-                              🗑️ Delete
-                            </button>
+                              <option value="Processing">Processing</option>
+                              <option value="Shipped">Shipped</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
                           </td>
                         </tr>
                       ))}
@@ -1121,7 +1403,38 @@ function App() {
                   </table>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Sub-Tab 6: View Customers */}
+            {adminSubTab === 'customers' && (
+              <div className="admin-card">
+                <h2>Registered Customers ({customers.length})</h2>
+                <div className="table-wrapper">
+                  <table className="inventory-table">
+                    <thead>
+                      <tr>
+                        <th>Customer Name</th>
+                        <th>Email Address</th>
+                        <th>Orders Count</th>
+                        <th>Total Spent</th>
+                        <th>Joined Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customers.map(c => (
+                        <tr key={c.id}>
+                          <td><strong>{c.name}</strong></td>
+                          <td>{c.email}</td>
+                          <td>{c.ordersCount} orders</td>
+                          <td>${c.totalSpent.toFixed(2)}</td>
+                          <td>{c.joinedDate}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </section>
         ) : null}
       </main>
