@@ -83,25 +83,57 @@ const INITIAL_BOOKS = [
   }
 ];
 
+// Initial mock orders for My Orders
+const INITIAL_ORDERS = [
+  {
+    id: 'ORD-98214',
+    date: '2026-09-20',
+    status: 'Delivered',
+    total: 36.49,
+    customer: {
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      phone: '+1 555-0192',
+      address: '123 Main Street',
+      city: 'New York',
+      zipCode: '10001'
+    },
+    items: [
+      { id: 1, title: 'The Great Gatsby', price: 14.99, quantity: 1, coverImage: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80' },
+      { id: 4, title: 'Dune', price: 18.99, quantity: 1, coverImage: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=400&q=80' }
+    ]
+  }
+];
+
 const CATEGORIES = ['All', 'Fiction', 'Self-Help', 'Technology', 'Sci-Fi', 'History', 'Psychology'];
 
 function App() {
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'books' | 'cart' | 'auth' | 'profile' | 'admin'
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'books' | 'cart' | 'checkout' | 'orders' | 'auth' | 'profile' | 'admin'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedBook, setSelectedBook] = useState(null);
   
-  // Dynamic Book Store State
+  // Store Data States
   const [books, setBooks] = useState(INITIAL_BOOKS);
-
-  // Shopping Cart state
   const [cart, setCart] = useState([]);
+  const [orders, setOrders] = useState(INITIAL_ORDERS);
 
   // User Auth State
   const [currentUser, setCurrentUser] = useState(null);
   const [authMode, setAuthMode] = useState('login');
   const [authFormData, setAuthFormData] = useState({ name: '', email: '', password: '' });
   const [authError, setAuthError] = useState('');
+
+  // Checkout Form State (Customer Information & Delivery Address)
+  const [checkoutData, setCheckoutData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    zipCode: '',
+    paymentMethod: 'credit-card'
+  });
 
   // Admin Management Form State
   const [adminBookForm, setAdminBookForm] = useState({
@@ -119,7 +151,69 @@ function App() {
   });
   const [isEditingBook, setIsEditingBook] = useState(false);
 
-  // Handle Admin Add / Edit Book
+  // Handle Checkout Form Submission (Place Order)
+  const handlePlaceOrder = (e) => {
+    e.preventDefault();
+
+    if (!checkoutData.fullName || !checkoutData.email || !checkoutData.phone || !checkoutData.address || !checkoutData.city || !checkoutData.zipCode) {
+      alert('Please fill out all delivery and customer information.');
+      return;
+    }
+
+    if (cart.length === 0) {
+      alert('Your cart is empty.');
+      return;
+    }
+
+    // Calculate Grand Total
+    const sub = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+    const taxAmt = sub * 0.08;
+    const finalTotal = sub + taxAmt;
+
+    // Create New Order
+    const newOrder = {
+      id: `ORD-${Math.floor(10000 + Math.random() * 90000)}`,
+      date: new Date().toISOString().split('T')[0],
+      status: 'Processing',
+      total: finalTotal,
+      customer: { ...checkoutData },
+      items: [...cart]
+    };
+
+    // Deduct available stock quantity for books
+    setBooks(prevBooks =>
+      prevBooks.map(b => {
+        const cartItem = cart.find(ci => ci.id === b.id);
+        if (cartItem) {
+          return {
+            ...b,
+            availableQuantity: Math.max(0, b.availableQuantity - cartItem.quantity)
+          };
+        }
+        return b;
+      })
+    );
+
+    // Save Order and reset Cart
+    setOrders([newOrder, ...orders]);
+    setCart([]);
+    alert(`Order ${newOrder.id} placed successfully! Thank you for your purchase.`);
+    setActiveTab('orders');
+  };
+
+  // Pre-fill checkout form if user is logged in
+  const proceedToCheckoutView = () => {
+    if (currentUser) {
+      setCheckoutData(prev => ({
+        ...prev,
+        fullName: currentUser.name || '',
+        email: currentUser.email || ''
+      }));
+    }
+    setActiveTab('checkout');
+  };
+
+  // Admin Actions
   const handleAdminBookSubmit = (e) => {
     e.preventDefault();
     if (!adminBookForm.title || !adminBookForm.author || !adminBookForm.price || !adminBookForm.availableQuantity) {
@@ -132,7 +226,6 @@ function App() {
     const cover = adminBookForm.coverImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80';
 
     if (isEditingBook) {
-      // Update existing book
       setBooks(prev => prev.map(b => b.id === adminBookForm.id ? {
         ...adminBookForm,
         price: priceNum,
@@ -141,7 +234,6 @@ function App() {
       } : b));
       alert('Book updated successfully!');
     } else {
-      // Add new book
       const newBook = {
         ...adminBookForm,
         id: Date.now(),
@@ -153,7 +245,6 @@ function App() {
       alert('New book added successfully!');
     }
 
-    // Reset form
     resetAdminForm();
   };
 
@@ -186,7 +277,7 @@ function App() {
     }
   };
 
-  // Auth Handling
+  // Auth Actions
   const handleAuthSubmit = (e) => {
     e.preventDefault();
     setAuthError('');
@@ -204,7 +295,7 @@ function App() {
     const userObj = {
       name: authMode === 'register' ? authFormData.name : authFormData.email.split('@')[0],
       email: authFormData.email,
-      isAdmin: authFormData.email.includes('admin') // Demo admin role if email contains 'admin'
+      isAdmin: authFormData.email.includes('admin')
     };
 
     setCurrentUser(userObj);
@@ -217,7 +308,7 @@ function App() {
     setActiveTab('home');
   };
 
-  // Cart Functions
+  // Cart Actions
   const addToCart = (book) => {
     setCart((prevCart) => {
       const existing = prevCart.find((item) => item.id === book.id);
@@ -268,7 +359,7 @@ function App() {
   const tax = subtotal * 0.08;
   const grandTotal = subtotal + tax;
 
-  // Book filtering
+  // Filter books
   const filteredBooks = books.filter((book) => {
     const matchesSearch =
       book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -318,8 +409,15 @@ function App() {
           >
             Books
           </button>
-
-          {/* Admin Navigation Tab */}
+          <button
+            className={`nav-btn ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('orders');
+              setSelectedBook(null);
+            }}
+          >
+            📦 My Orders ({orders.length})
+          </button>
           <button
             className={`nav-btn admin-nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => {
@@ -329,7 +427,6 @@ function App() {
           >
             ⚙️ Admin Panel
           </button>
-
           <button
             className={`nav-btn cart-nav-btn ${activeTab === 'cart' ? 'active' : ''}`}
             onClick={() => {
@@ -577,20 +674,189 @@ function App() {
 
                   <button
                     className="checkout-btn"
-                    onClick={() => {
-                      if (!currentUser) {
-                        alert('Please sign in to complete your checkout!');
-                        setActiveTab('auth');
-                      } else {
-                        alert(`Order placed successfully by ${currentUser.name}! Total: $${grandTotal.toFixed(2)}`);
-                        setCart([]);
-                        setActiveTab('home');
-                      }
-                    }}
+                    onClick={proceedToCheckoutView}
                   >
                     Proceed to Checkout
                   </button>
                 </div>
+              </div>
+            )}
+          </section>
+        ) : activeTab === 'checkout' ? (
+          /* Checkout Partition View */
+          <section className="checkout-view">
+            <h1 className="page-title">🛍️ Checkout & Place Order</h1>
+
+            <form onSubmit={handlePlaceOrder} className="checkout-layout">
+              <div className="checkout-forms">
+                {/* Customer Information Form */}
+                <div className="checkout-card">
+                  <h2>Customer Information</h2>
+                  <div className="form-group">
+                    <label>Full Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={checkoutData.fullName}
+                      onChange={(e) => setCheckoutData({ ...checkoutData, fullName: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Email Address *</label>
+                      <input
+                        type="email"
+                        placeholder="john@example.com"
+                        value={checkoutData.email}
+                        onChange={(e) => setCheckoutData({ ...checkoutData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Phone Number *</label>
+                      <input
+                        type="tel"
+                        placeholder="+1 555-0192"
+                        value={checkoutData.phone}
+                        onChange={(e) => setCheckoutData({ ...checkoutData, phone: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery Address Form */}
+                <div className="checkout-card">
+                  <h2>Delivery Address</h2>
+                  <div className="form-group">
+                    <label>Street Address *</label>
+                    <input
+                      type="text"
+                      placeholder="123 Main Street, Apt 4B"
+                      value={checkoutData.address}
+                      onChange={(e) => setCheckoutData({ ...checkoutData, address: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>City *</label>
+                      <input
+                        type="text"
+                        placeholder="New York"
+                        value={checkoutData.city}
+                        onChange={(e) => setCheckoutData({ ...checkoutData, city: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Zip Code *</label>
+                      <input
+                        type="text"
+                        placeholder="10001"
+                        value={checkoutData.zipCode}
+                        onChange={(e) => setCheckoutData({ ...checkoutData, zipCode: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Summary & Place Order Sidebar */}
+              <div className="checkout-summary-card">
+                <h2>Order Summary</h2>
+                <div className="checkout-items-preview">
+                  {cart.map(item => (
+                    <div key={item.id} className="preview-item">
+                      <span>{item.title} (x{item.quantity})</span>
+                      <span>${(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="summary-divider"></div>
+                <div className="summary-row">
+                  <span>Subtotal</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="summary-row">
+                  <span>Estimated Tax (8%)</span>
+                  <span>${tax.toFixed(2)}</span>
+                </div>
+                <div className="summary-divider"></div>
+                <div className="summary-row grand-total">
+                  <span>Grand Total</span>
+                  <span>${grandTotal.toFixed(2)}</span>
+                </div>
+
+                <button type="submit" className="place-order-btn">
+                  Place Order Now
+                </button>
+              </div>
+            </form>
+          </section>
+        ) : activeTab === 'orders' ? (
+          /* My Orders Partition View */
+          <section className="orders-view">
+            <h1 className="page-title">📦 My Orders & History</h1>
+
+            {orders.length === 0 ? (
+              <div className="empty-orders-card">
+                <p>You have not placed any orders yet.</p>
+                <button className="buy-now-btn" onClick={() => setActiveTab('books')}>
+                  Start Shopping
+                </button>
+              </div>
+            ) : (
+              <div className="orders-list">
+                {orders.map((order) => (
+                  <div key={order.id} className="order-card">
+                    <div className="order-header">
+                      <div>
+                        <span className="order-id">{order.id}</span>
+                        <span className="order-date">Placed on {order.date}</span>
+                      </div>
+                      <div className="order-status-group">
+                        <span className={`status-badge ${order.status.toLowerCase()}`}>
+                          {order.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="order-body">
+                      <div className="order-items-column">
+                        <h4>Items Ordered</h4>
+                        {order.items.map((item) => (
+                          <div key={item.id} className="order-item-row">
+                            <img src={item.coverImage} alt={item.title} className="order-item-thumb" />
+                            <div>
+                              <strong>{item.title}</strong>
+                              <div className="order-item-qty">
+                                ${item.price.toFixed(2)} x {item.quantity}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="order-delivery-column">
+                        <h4>Delivery Info</h4>
+                        <p><strong>{order.customer.fullName}</strong></p>
+                        <p>{order.customer.address}, {order.customer.city} {order.customer.zipCode}</p>
+                        <p>📞 {order.customer.phone}</p>
+                        <div className="order-total-price">
+                          Total Amount: ${order.total.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </section>
@@ -681,12 +947,11 @@ function App() {
             </div>
           </section>
         ) : activeTab === 'admin' ? (
-          /* Admin Dashboard Partition */
+          /* Admin View */
           <section className="admin-view">
             <h1 className="page-title">⚙️ Admin Dashboard & Inventory Management</h1>
 
             <div className="admin-layout">
-              {/* Form to Add / Edit Book */}
               <div className="admin-form-card">
                 <h2>{isEditingBook ? 'Edit Book Information' : 'Add New Book to Store'}</h2>
                 <form onSubmit={handleAdminBookSubmit} className="admin-form">
@@ -804,7 +1069,6 @@ function App() {
                 </form>
               </div>
 
-              {/* Book Inventory List Table */}
               <div className="admin-inventory-card">
                 <h2>Current Inventory ({books.length} Books)</h2>
                 <div className="table-wrapper">
